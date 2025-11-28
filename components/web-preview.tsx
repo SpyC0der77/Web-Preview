@@ -58,6 +58,7 @@ export function WebPreview({
   const [refreshKey, setRefreshKey] = useState(0);
   const [mounted, setMounted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [viewMode, setViewMode] = useState<"preview" | "code">("preview");
   const contentRef = useRef<HTMLDivElement>(null);
   const originalConsoleRef = useRef<{
     log: typeof console.log;
@@ -265,14 +266,26 @@ export function WebPreview({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-none text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 cursor-pointer"
+              className={cn(
+                "h-7 w-7 rounded-none hover:text-neutral-200 hover:bg-neutral-800 cursor-pointer",
+                viewMode === "preview"
+                  ? "text-neutral-200 bg-neutral-800"
+                  : "text-neutral-400"
+              )}
+              onClick={() => setViewMode("preview")}
             >
               <Eye className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-none text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 border-l border-neutral-700 cursor-pointer"
+              className={cn(
+                "h-7 w-7 rounded-none hover:text-neutral-200 hover:bg-neutral-800 border-l border-neutral-700 cursor-pointer",
+                viewMode === "code"
+                  ? "text-neutral-200 bg-neutral-800"
+                  : "text-neutral-400"
+              )}
+              onClick={() => setViewMode("code")}
             >
               <Code className="h-4 w-4" />
             </Button>
@@ -374,11 +387,17 @@ export function WebPreview({
               onClick={handleContentClick}
               className="h-full bg-white overflow-auto"
             >
-              <Component
-                key={refreshKey}
-                path={currentPath}
-                navigate={navigate}
-              />
+              {viewMode === "preview" ? (
+                <Component
+                  key={refreshKey}
+                  path={currentPath}
+                  navigate={navigate}
+                />
+              ) : (
+                <pre className="text-xs overflow-auto p-4 bg-neutral-900 text-neutral-100 font-mono h-full">
+                  Hello
+                </pre>
+              )}
             </div>
           </ResizablePanel>
           {showConsole && <ResizableHandle />}
@@ -454,11 +473,17 @@ export function WebPreview({
               showConsole && "border-b border-neutral-800"
             )}
           >
-            <Component
-              key={refreshKey}
-              path={currentPath}
-              navigate={navigate}
-            />
+            {viewMode === "preview" ? (
+              <Component
+                key={refreshKey}
+                path={currentPath}
+                navigate={navigate}
+              />
+            ) : (
+              <pre className="text-xs overflow-auto p-4 bg-neutral-900 text-neutral-100 font-mono h-full">
+                Hello
+              </pre>
+            )}
           </div>
 
           {showConsole && (
