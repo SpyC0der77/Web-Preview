@@ -13,8 +13,14 @@ import {
   RefreshCw,
   Terminal,
   Monitor,
+  Maximize,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
 import { cn } from "@/lib/utils";
 
 type ConsoleLogType = "log" | "warn" | "error" | "info";
@@ -166,13 +172,13 @@ export function WebPreview({
       <div className="flex items-center justify-between px-2 py-1.5 bg-neutral-900 border-b border-neutral-800">
         {/* Left Controls */}
         <div className="flex items-center gap-0.5">
-          <Button
+          {/* <Button
             variant="ghost"
             size="icon"
             className="h-7 w-7 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800"
           >
             <ChevronsLeft className="h-4 w-4" />
-          </Button>
+          </Button> */}
           <div className="flex items-center border border-neutral-700 rounded-md overflow-hidden">
             <Button
               variant="ghost"
@@ -255,7 +261,7 @@ export function WebPreview({
             className={cn(
               "h-7 w-7 hover:bg-neutral-800",
               showConsole
-                ? "text-neutral-200 bg-neutral-800"
+                ? "text-neutral-200 bg-neutral-800 hover:text-neutral-300 hover:bg-neutral-600"
                 : "text-neutral-400 hover:text-neutral-200"
             )}
             onClick={() => setShowConsole(!showConsole)}
@@ -267,67 +273,77 @@ export function WebPreview({
             size="icon"
             className="h-7 w-7 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800"
           >
-            <MoreHorizontal className="h-4 w-4" />
+            <Maximize className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      {/* Content Area */}
-      <div
-        ref={contentRef}
-        onClick={handleContentClick}
-        className={cn(
-          "flex-1 bg-white overflow-auto",
-          showConsole && "border-b border-neutral-800"
-        )}
-      >
-        <Component key={refreshKey} path={currentPath} navigate={navigate} />
-      </div>
-
-      {showConsole && (
-        <div className="h-48 bg-neutral-950 overflow-hidden flex flex-col">
-          <div className="flex items-center justify-between px-3 py-1.5 bg-neutral-900 border-b border-neutral-800">
-            <span className="text-xs font-medium text-neutral-400">
-              Console
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-5 text-xs text-neutral-500 hover:text-neutral-300 px-2"
-              onClick={() => setConsoleLogs([])}
-            >
-              Clear
-            </Button>
+      {/* Resizable Content and Console */}
+      <ResizablePanelGroup direction="vertical" className="flex-1">
+        <ResizablePanel defaultSize={showConsole ? 70 : 100} minSize={20}>
+          <div
+            ref={contentRef}
+            onClick={handleContentClick}
+            className="h-full bg-white overflow-auto"
+          >
+            <Component
+              key={refreshKey}
+              path={currentPath}
+              navigate={navigate}
+            />
           </div>
-          <div className="flex-1 overflow-auto font-mono text-xs p-2 space-y-1">
-            {consoleLogs.length === 0 ? (
-              <div className="text-neutral-600 italic">No console output</div>
-            ) : (
-              consoleLogs.map((log, index) => (
-                <div
-                  key={index}
-                  className={cn(
-                    "flex items-start gap-2 py-0.5 px-1 rounded",
-                    log.type === "error" && "bg-red-950/50 text-red-400",
-                    log.type === "warn" && "bg-yellow-950/50 text-yellow-400",
-                    log.type === "info" && "text-blue-400",
-                    log.type === "log" && "text-neutral-300"
-                  )}
+        </ResizablePanel>
+        {showConsole && <ResizableHandle />}
+        {showConsole && (
+          <ResizablePanel defaultSize={30} minSize={10}>
+            <div className="h-full bg-neutral-950 overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between px-3 py-1.5 bg-neutral-900 border-b border-neutral-800">
+                <span className="text-xs font-medium text-neutral-400">
+                  Console
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 text-xs text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300 px-2"
+                  onClick={() => setConsoleLogs([])}
                 >
-                  <span className="text-neutral-600 shrink-0">
-                    {log.timestamp.toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })}
-                  </span>
-                  <span className="break-all">{log.message}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
+                  Clear
+                </Button>
+              </div>
+              <div className="flex-1 overflow-auto font-mono text-xs p-2 space-y-1">
+                {consoleLogs.length === 0 ? (
+                  <div className="text-neutral-600 italic">
+                    No console output
+                  </div>
+                ) : (
+                  consoleLogs.map((log, index) => (
+                    <div
+                      key={index}
+                      className={cn(
+                        "flex items-start gap-2 py-0.5 px-1 rounded",
+                        log.type === "error" && "bg-red-950/50 text-red-400",
+                        log.type === "warn" &&
+                          "bg-yellow-950/50 text-yellow-400",
+                        log.type === "info" && "text-blue-400",
+                        log.type === "log" && "text-neutral-300"
+                      )}
+                    >
+                      <span className="text-neutral-600 shrink-0">
+                        {log.timestamp.toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })}
+                      </span>
+                      <span className="break-all">{log.message}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </ResizablePanel>
+        )}
+      </ResizablePanelGroup>
     </div>
   );
 }
