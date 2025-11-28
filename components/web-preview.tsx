@@ -14,6 +14,7 @@ import {
   Terminal,
   Monitor,
   Maximize,
+  Minimize,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,6 +57,7 @@ export function WebPreview({
   const [consoleLogs, setConsoleLogs] = useState<ConsoleLog[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const originalConsoleRef = useRef<{
     log: typeof console.log;
@@ -90,6 +92,18 @@ export function WebPreview({
 
   const refresh = useCallback(() => {
     setRefreshKey((prev) => prev + 1);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!isFullscreen) {
+      contentRef.current?.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  }, [isFullscreen]);
+
+  const handleFullscreenChange = useCallback(() => {
+    setIsFullscreen(document.fullscreenElement === contentRef.current);
   }, []);
 
   const parseStyle = (styleStr: string): React.CSSProperties => {
@@ -138,6 +152,12 @@ export function WebPreview({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, [handleFullscreenChange]);
 
   useEffect(() => {
     originalConsoleRef.current = {
@@ -245,14 +265,14 @@ export function WebPreview({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-none text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800"
+              className="h-7 w-7 rounded-none text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 cursor-pointer"
             >
               <Eye className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-none text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 border-l border-neutral-700"
+              className="h-7 w-7 rounded-none text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 border-l border-neutral-700 cursor-pointer"
             >
               <Code className="h-4 w-4" />
             </Button>
@@ -266,7 +286,7 @@ export function WebPreview({
               variant="ghost"
               size="icon"
               className={cn(
-                "h-5 w-5 hover:bg-neutral-700",
+                "h-5 w-5 hover:bg-neutral-700 cursor-pointer",
                 canGoBack ? "text-neutral-300" : "text-neutral-600"
               )}
               onClick={goBack}
@@ -278,7 +298,7 @@ export function WebPreview({
               variant="ghost"
               size="icon"
               className={cn(
-                "h-5 w-5 hover:bg-neutral-700",
+                "h-5 w-5 hover:bg-neutral-700 cursor-pointer",
                 canGoForward ? "text-neutral-300" : "text-neutral-600"
               )}
               onClick={goForward}
@@ -321,7 +341,7 @@ export function WebPreview({
             variant="ghost"
             size="icon"
             className={cn(
-              "h-7 w-7 hover:bg-neutral-800",
+              "h-7 w-7 hover:bg-neutral-800 cursor-pointer",
               showConsole
                 ? "text-neutral-200 bg-neutral-800 hover:text-neutral-300 hover:bg-neutral-600"
                 : "text-neutral-400 hover:text-neutral-200"
@@ -333,9 +353,14 @@ export function WebPreview({
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800"
+            className="h-7 w-7 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 cursor-pointer"
+            onClick={toggleFullscreen}
           >
-            <Maximize className="h-4 w-4" />
+            {isFullscreen ? (
+              <Minimize className="h-4 w-4" />
+            ) : (
+              <Maximize className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </div>
@@ -367,7 +392,7 @@ export function WebPreview({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-5 text-xs text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300 px-2"
+                    className="h-5 text-xs text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300 px-2 cursor-pointer"
                     onClick={() => setConsoleLogs([])}
                   >
                     Clear
@@ -445,7 +470,7 @@ export function WebPreview({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-5 text-xs text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300 px-2"
+                  className="h-5 text-xs text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300 px-2 cursor-pointer"
                   onClick={() => setConsoleLogs([])}
                 >
                   Clear
