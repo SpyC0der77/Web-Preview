@@ -25,9 +25,14 @@ import { cn } from "@/lib/utils";
 
 type ConsoleLogType = "log" | "warn" | "error" | "info";
 
+interface ConsoleLogPart {
+  text: string;
+  style?: string;
+}
+
 interface ConsoleLog {
   type: ConsoleLogType;
-  message: string;
+  parts: ConsoleLogPart[];
   timestamp: Date;
 }
 
@@ -87,12 +92,33 @@ export function WebPreview({
     setRefreshKey((prev) => prev + 1);
   }, []);
 
-  const addLog = useCallback((type: ConsoleLogType, message: string) => {
-    setConsoleLogs((prev) => [
-      ...prev,
-      { type, message, timestamp: new Date() },
-    ]);
-  }, []);
+  const parseStyle = (styleStr: string): React.CSSProperties => {
+    const style: React.CSSProperties = {};
+    const rules = styleStr
+      .split(";")
+      .map((r) => r.trim())
+      .filter((r) => r);
+    for (const rule of rules) {
+      const [prop, value] = rule.split(":").map((s) => s.trim());
+      if (prop && value) {
+        const camelProp = prop.replace(/-([a-z])/g, (_, letter) =>
+          letter.toUpperCase()
+        );
+        (style as any)[camelProp] = value;
+      }
+    }
+    return style;
+  };
+
+  const addLog = useCallback(
+    (type: ConsoleLogType, parts: ConsoleLogPart[]) => {
+      setConsoleLogs((prev) => [
+        ...prev,
+        { type, parts, timestamp: new Date() },
+      ]);
+    },
+    []
+  );
 
   const handleContentClick = useCallback(
     (e: React.MouseEvent) => {
@@ -121,19 +147,50 @@ export function WebPreview({
       info: console.info,
     };
 
-    const formatArgs = (args: unknown[]) => {
-      return args
-        .map((arg) => {
-          if (typeof arg === "object") {
-            try {
-              return JSON.stringify(arg, null, 2);
-            } catch {
-              return String(arg);
-            }
+    const formatArgs = (args: unknown[]): ConsoleLogPart[] => {
+      if (args.length === 0) return [{ text: "" }];
+
+      const first = args[0];
+      if (typeof first === "string" && first.includes("%c")) {
+        const parts: ConsoleLogPart[] = [];
+        const segments = first.split("%c");
+        let styleIndex = 1;
+        for (let i = 0; i < segments.length; i++) {
+          const text = segments[i];
+          if (text) {
+            const style =
+              i > 0 && styleIndex < args.length
+                ? (args[styleIndex++] as string)
+                : undefined;
+            parts.push({ text, style });
           }
-          return String(arg);
-        })
-        .join(" ");
+        }
+        // remaining args
+        for (let i = styleIndex; i < args.length; i++) {
+          parts.push({
+            text:
+              typeof args[i] === "object"
+                ? JSON.stringify(args[i], null, 2)
+                : String(args[i]),
+          });
+        }
+        return parts;
+      } else {
+        const text = args
+          .map((arg) => {
+            if (typeof arg === "object") {
+              try {
+                return JSON.stringify(arg, null, 2);
+              } catch {
+                return String(arg);
+              }
+            }
+            return String(arg);
+          })
+          .join(" ")
+          .replace(/\x1b\[[0-9;]*m/g, ""); // strip ANSI escape codes
+        return [{ text }];
+      }
     };
 
     console.log = (...args: unknown[]) => {
@@ -341,7 +398,18 @@ export function WebPreview({
                             second: "2-digit",
                           })}
                         </span>
-                        <span className="break-all">{log.message}</span>
+                        <span className="break-all">
+                          {log.parts.map((part, i) => (
+                            <span
+                              key={i}
+                              style={
+                                part.style ? parseStyle(part.style) : undefined
+                              }
+                            >
+                              {part.text}
+                            </span>
+                          ))}
+                        </span>
                       </div>
                     ))
                   )}
@@ -408,7 +476,18 @@ export function WebPreview({
                           second: "2-digit",
                         })}
                       </span>
-                      <span className="break-all">{log.message}</span>
+                      <span className="break-all">
+                        {log.parts.map((part, i) => (
+                          <span
+                            key={i}
+                            style={
+                              part.style ? parseStyle(part.style) : undefined
+                            }
+                          >
+                            {part.text}
+                          </span>
+                        ))}
+                      </span>
                     </div>
                   ))
                 )}
