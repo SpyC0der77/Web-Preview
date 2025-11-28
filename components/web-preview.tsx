@@ -50,6 +50,7 @@ export function WebPreview({
   const [showConsole, setShowConsole] = useState(false);
   const [consoleLogs, setConsoleLogs] = useState<ConsoleLog[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [mounted, setMounted] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const originalConsoleRef = useRef<{
     log: typeof console.log;
@@ -107,6 +108,10 @@ export function WebPreview({
     },
     [navigate]
   );
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     originalConsoleRef.current = {
@@ -278,13 +283,83 @@ export function WebPreview({
         </div>
       </div>
 
-      {/* Resizable Content and Console */}
-      <ResizablePanelGroup direction="vertical" className="flex-1">
-        <ResizablePanel defaultSize={showConsole ? 70 : 100} minSize={20}>
+      {/* Content and Console */}
+      {mounted ? (
+        <ResizablePanelGroup direction="vertical" className="flex-1">
+          <ResizablePanel defaultSize={showConsole ? 70 : 100} minSize={20}>
+            <div
+              ref={contentRef}
+              onClick={handleContentClick}
+              className="h-full bg-white overflow-auto"
+            >
+              <Component
+                key={refreshKey}
+                path={currentPath}
+                navigate={navigate}
+              />
+            </div>
+          </ResizablePanel>
+          {showConsole && <ResizableHandle />}
+          {showConsole && (
+            <ResizablePanel defaultSize={30} minSize={10}>
+              <div className="h-full bg-neutral-950 overflow-hidden flex flex-col">
+                <div className="flex items-center justify-between px-3 py-1.5 bg-neutral-900 border-b border-neutral-800">
+                  <span className="text-xs font-medium text-neutral-400">
+                    Console
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 text-xs text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300 px-2"
+                    onClick={() => setConsoleLogs([])}
+                  >
+                    Clear
+                  </Button>
+                </div>
+                <div className="flex-1 overflow-auto font-mono text-xs p-2 space-y-1">
+                  {consoleLogs.length === 0 ? (
+                    <div className="text-neutral-600 italic">
+                      No console output
+                    </div>
+                  ) : (
+                    consoleLogs.map((log, index) => (
+                      <div
+                        key={index}
+                        className={cn(
+                          "flex items-start gap-2 py-0.5 px-1 rounded",
+                          log.type === "error" && "bg-red-950/50 text-red-400",
+                          log.type === "warn" &&
+                            "bg-yellow-950/50 text-yellow-400",
+                          log.type === "info" && "text-blue-400",
+                          log.type === "log" && "text-neutral-300"
+                        )}
+                      >
+                        <span className="text-neutral-600 shrink-0">
+                          {log.timestamp.toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            second: "2-digit",
+                          })}
+                        </span>
+                        <span className="break-all">{log.message}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </ResizablePanel>
+          )}
+        </ResizablePanelGroup>
+      ) : (
+        <>
+          {/* Content Area */}
           <div
             ref={contentRef}
             onClick={handleContentClick}
-            className="h-full bg-white overflow-auto"
+            className={cn(
+              "flex-1 bg-white overflow-auto",
+              showConsole && "border-b border-neutral-800"
+            )}
           >
             <Component
               key={refreshKey}
@@ -292,11 +367,9 @@ export function WebPreview({
               navigate={navigate}
             />
           </div>
-        </ResizablePanel>
-        {showConsole && <ResizableHandle />}
-        {showConsole && (
-          <ResizablePanel defaultSize={30} minSize={10}>
-            <div className="h-full bg-neutral-950 overflow-hidden flex flex-col">
+
+          {showConsole && (
+            <div className="h-48 bg-neutral-950 overflow-hidden flex flex-col">
               <div className="flex items-center justify-between px-3 py-1.5 bg-neutral-900 border-b border-neutral-800">
                 <span className="text-xs font-medium text-neutral-400">
                   Console
@@ -341,9 +414,9 @@ export function WebPreview({
                 )}
               </div>
             </div>
-          </ResizablePanel>
-        )}
-      </ResizablePanelGroup>
+          )}
+        </>
+      )}
     </div>
   );
 }
