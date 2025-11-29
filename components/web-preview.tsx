@@ -1,12 +1,13 @@
 "use client";
 
-import type React from "react";
+import React from "react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   Code,
+  Copy,
   Eye,
   ExternalLink,
   MoreHorizontal,
@@ -23,6 +24,8 @@ import {
   ResizableHandle,
 } from "@/components/ui/resizable";
 import { cn } from "@/lib/utils";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 type ConsoleLogType = "log" | "warn" | "error" | "info";
 
@@ -42,12 +45,88 @@ interface WebPreviewProps {
     path: string;
     navigate: (path: string) => void;
   }>;
+  code?: string;
   initialPath?: string;
   className?: string;
 }
 
+class ErrorBoundary extends React.Component<
+  {
+    children: React.ReactNode;
+    onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  },
+  { hasError: boolean; error?: Error }
+> {
+  constructor(props: {
+    children: React.ReactNode;
+    onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("Preview component error:", error, errorInfo);
+    this.props.onError?.(error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-full py-12 px-4 bg-red-50">
+          <div className="text-red-600 mb-4">
+            <svg
+              className="w-12 h-12"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-red-800 mb-2">
+            Preview Error
+          </h2>
+          <p className="text-red-600 text-center mb-4">
+            The preview component encountered an error and couldn't render
+            properly.
+          </p>
+          <button
+            onClick={() => this.setState({ hasError: false, error: undefined })}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+          >
+            Try Again
+          </button>
+          {this.state.error && (
+            <details className="mt-4 w-full max-w-md">
+              <summary className="cursor-pointer text-red-700 hover:text-red-900">
+                Error Details
+              </summary>
+              <pre className="mt-2 p-2 bg-red-100 text-red-900 text-xs rounded overflow-auto">
+                {this.state.error.message}
+              </pre>
+            </details>
+          )}
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 export function WebPreview({
   component: Component,
+  code,
   initialPath = "/",
   className,
 }: WebPreviewProps) {
@@ -56,7 +135,6 @@ export function WebPreview({
   const [showConsole, setShowConsole] = useState(false);
   const [consoleLogs, setConsoleLogs] = useState<ConsoleLog[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [mounted, setMounted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [viewMode, setViewMode] = useState<"preview" | "code">("preview");
   const contentRef = useRef<HTMLDivElement>(null);
@@ -149,10 +227,6 @@ export function WebPreview({
     },
     [navigate]
   );
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     document.addEventListener("fullscreenchange", handleFullscreenChange);
@@ -379,115 +453,52 @@ export function WebPreview({
       </div>
 
       {/* Content and Console */}
-      {mounted ? (
-        <ResizablePanelGroup direction="vertical" className="flex-1">
-          <ResizablePanel defaultSize={showConsole ? 70 : 100} minSize={20}>
-            <div
-              ref={contentRef}
-              onClick={handleContentClick}
-              className="h-full bg-white overflow-auto"
-            >
-              {viewMode === "preview" ? (
-                <Component
-                  key={refreshKey}
-                  path={currentPath}
-                  navigate={navigate}
-                />
-              ) : (
-                <pre className="text-xs overflow-auto p-4 bg-neutral-900 text-neutral-100 font-mono h-full">
-                  Hello
-                </pre>
-              )}
-            </div>
-          </ResizablePanel>
-          {showConsole && <ResizableHandle />}
-          {showConsole && (
-            <ResizablePanel defaultSize={30} minSize={10}>
+      <ResizablePanelGroup direction="vertical" className="flex-1">
+        <ResizablePanel defaultSize={showConsole ? 70 : 100} minSize={20}>
+          <div
+            ref={contentRef}
+            onClick={handleContentClick}
+            className="h-full bg-white overflow-auto"
+          >
+            {viewMode === "preview" ? (
+              <ErrorBoundary key={refreshKey}>
+                <Component path={currentPath} navigate={navigate} />
+              </ErrorBoundary>
+            ) : (
               <div className="h-full bg-neutral-950 overflow-hidden flex flex-col">
                 <div className="flex items-center justify-between px-3 py-1.5 bg-neutral-900 border-b border-neutral-800">
                   <span className="text-xs font-medium text-neutral-400">
-                    Console
+                    Code
                   </span>
                   <Button
                     variant="ghost"
                     size="sm"
                     className="h-5 text-xs text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300 px-2 cursor-pointer"
-                    onClick={() => setConsoleLogs([])}
+                    onClick={() =>
+                      navigator.clipboard.writeText(code || "No code provided")
+                    }
                   >
-                    Clear
+                    <Copy className="h-3 w-3 mr-1" /> Copy
                   </Button>
                 </div>
-                <div className="flex-1 overflow-auto font-mono text-xs p-2 space-y-1">
-                  {consoleLogs.length === 0 ? (
-                    <div className="text-neutral-600 italic">
-                      No console output
-                    </div>
-                  ) : (
-                    consoleLogs.map((log, index) => (
-                      <div
-                        key={index}
-                        className={cn(
-                          "flex items-start gap-2 py-0.5 px-1 rounded",
-                          log.type === "error" && "bg-red-950/50 text-red-400",
-                          log.type === "warn" &&
-                            "bg-yellow-950/50 text-yellow-400",
-                          log.type === "info" && "text-blue-400",
-                          log.type === "log" && "text-neutral-300"
-                        )}
-                      >
-                        <span className="text-neutral-600 shrink-0">
-                          {log.timestamp.toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            second: "2-digit",
-                          })}
-                        </span>
-                        <span className="break-all">
-                          {log.parts.map((part, i) => (
-                            <span
-                              key={i}
-                              style={
-                                part.style ? parseStyle(part.style) : undefined
-                              }
-                            >
-                              {part.text}
-                            </span>
-                          ))}
-                        </span>
-                      </div>
-                    ))
-                  )}
+                <div className="flex-1 overflow-auto">
+                  <SyntaxHighlighter
+                    language="jsx"
+                    style={oneDark}
+                    showLineNumbers
+                    className="h-full text-xs !bg-neutral-900 !m-0"
+                  >
+                    {code || "No code provided"}
+                  </SyntaxHighlighter>
                 </div>
               </div>
-            </ResizablePanel>
-          )}
-        </ResizablePanelGroup>
-      ) : (
-        <>
-          {/* Content Area */}
-          <div
-            ref={contentRef}
-            onClick={handleContentClick}
-            className={cn(
-              "flex-1 bg-white overflow-auto",
-              showConsole && "border-b border-neutral-800"
-            )}
-          >
-            {viewMode === "preview" ? (
-              <Component
-                key={refreshKey}
-                path={currentPath}
-                navigate={navigate}
-              />
-            ) : (
-              <pre className="text-xs overflow-auto p-4 bg-neutral-900 text-neutral-100 font-mono h-full">
-                Hello
-              </pre>
             )}
           </div>
-
-          {showConsole && (
-            <div className="h-48 bg-neutral-950 overflow-hidden flex flex-col">
+        </ResizablePanel>
+        {showConsole && <ResizableHandle />}
+        {showConsole && (
+          <ResizablePanel defaultSize={30} minSize={10}>
+            <div className="h-full bg-neutral-950 overflow-hidden flex flex-col">
               <div className="flex items-center justify-between px-3 py-1.5 bg-neutral-900 border-b border-neutral-800">
                 <span className="text-xs font-medium text-neutral-400">
                   Console
@@ -543,9 +554,9 @@ export function WebPreview({
                 )}
               </div>
             </div>
-          )}
-        </>
-      )}
+          </ResizablePanel>
+        )}
+      </ResizablePanelGroup>
     </div>
   );
 }
