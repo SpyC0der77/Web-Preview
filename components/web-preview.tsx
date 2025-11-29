@@ -24,8 +24,9 @@ import {
   ResizableHandle,
 } from "@/components/ui/resizable";
 import { cn } from "@/lib/utils";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import CodeMirror from "@uiw/react-codemirror";
+import { javascript } from "@codemirror/lang-javascript";
+import { oneDark } from "@codemirror/theme-one-dark";
 
 type ConsoleLogType = "log" | "warn" | "error" | "info";
 
@@ -482,14 +483,13 @@ export function WebPreview({
                   </Button>
                 </div>
                 <div className="flex-1 overflow-auto">
-                  <SyntaxHighlighter
-                    language="jsx"
-                    style={oneDark}
-                    showLineNumbers
-                    className="h-full text-xs !bg-neutral-900 !m-0"
-                  >
-                    {code || "No code provided"}
-                  </SyntaxHighlighter>
+                  <CodeMirror
+                    value={code || "No code provided"}
+                    theme={oneDark}
+                    extensions={[javascript({ jsx: true })]}
+                    className="h-full text-sm"
+                    editable={false}
+                  />
                 </div>
               </div>
             )}
